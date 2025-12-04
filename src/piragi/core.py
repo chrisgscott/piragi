@@ -406,6 +406,113 @@ class Ragi:
 
         return answer
 
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+    ) -> List:
+        """
+        Retrieve relevant chunks without LLM generation.
+
+        Use this when you want to handle LLM generation yourself or integrate
+        with other frameworks (LangChain, LlamaIndex, etc.).
+
+        Args:
+            query: Search query
+            top_k: Number of relevant chunks to retrieve
+
+        Returns:
+            List of Citation objects with text, source, score, and metadata
+
+        Examples:
+            >>> chunks = kb.retrieve("How does authentication work?")
+            >>> for chunk in chunks:
+            ...     print(chunk.text, chunk.source, chunk.score)
+            >>>
+            >>> # Use with your own LLM
+            >>> context = "\\n".join(c.chunk for c in chunks)
+            >>> response = your_llm(f"Based on: {context}\\n\\nQ: {query}")
+        """
+        from .types import Citation
+
+        # Validate query
+        if not query or not query.strip():
+            return []
+
+        # Determine queries to use for retrieval
+        if self._use_hyde and self._hyde:
+            try:
+                hypothetical_doc = self._hyde.transform_query(query)
+                query_variations = [hypothetical_doc]
+                logger.debug(f"HyDE generated: {hypothetical_doc[:100]}...")
+            except Exception as e:
+                logger.warning(f"HyDE failed: {e}, falling back to regular query")
+                query_variations = [query]
+        else:
+            # Use original query (skip expansion for pure retrieval)
+            query_variations = [query]
+
+        # Search with all query variations and merge results
+        all_citations = []
+        seen_chunks = set()
+
+        # Get more candidates if we're using cross-encoder reranking
+        search_top_k = top_k * 4 if self._use_cross_encoder else top_k
+
+        for query_var in query_variations:
+            # Generate query embedding
+            query_embedding = self.embedder.embed_query(query_var)
+
+            # Search for relevant chunks
+            citations = self.store.search(
+                query_embedding=query_embedding,
+                top_k=search_top_k,
+                filters=self._filters,
+            )
+
+            # Add unique citations
+            for citation in citations:
+                chunk_id = (citation.source, citation.chunk[:100])
+                if chunk_id not in seen_chunks:
+                    seen_chunks.add(chunk_id)
+                    all_citations.append(citation)
+
+        # Apply hybrid search if enabled
+        if self._use_hybrid_search and self._hybrid_searcher:
+            try:
+                all_citations = self._hybrid_searcher.search(
+                    query=query,
+                    vector_citations=all_citations,
+                    top_k=search_top_k,
+                )
+            except Exception as e:
+                logger.warning(f"Hybrid search failed: {e}")
+
+        # Apply cross-encoder reranking if enabled
+        if self._use_cross_encoder and self._cross_encoder:
+            try:
+                all_citations = self._cross_encoder.rerank(
+                    query=query,
+                    citations=all_citations,
+                    top_k=top_k,
+                )
+            except Exception as e:
+                logger.warning(f"Cross-encoder reranking failed: {e}")
+                all_citations.sort(key=lambda c: c.score, reverse=True)
+                all_citations = all_citations[:top_k]
+        else:
+            all_citations.sort(key=lambda c: c.score, reverse=True)
+            all_citations = all_citations[:top_k]
+
+        # For hierarchical chunks, expand to parent context
+        if self._use_hierarchical:
+            all_citations = self._expand_to_parent_context(all_citations)
+
+        # Reset filters after use
+        self._filters = None
+
+        return all_citations
+
     def _expand_to_parent_context(self, citations: List) -> List:
         """
         Expand child chunks to include parent context.

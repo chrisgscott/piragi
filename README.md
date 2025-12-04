@@ -156,15 +156,43 @@ kb = Ragi("./docs", config={"auto_update": {"enabled": False}})
 
 ---
 
+## Retrieval Only (No LLM)
+
+Use piragi as a pure retrieval layer - bring your own LLM:
+
+```python
+from piragi import Ragi
+
+kb = Ragi("./docs")
+
+# Just get relevant chunks - no LLM involved
+chunks = kb.retrieve("How does authentication work?", top_k=5)
+
+for chunk in chunks:
+    print(chunk.chunk)   # text content
+    print(chunk.source)  # source file/url
+    print(chunk.score)   # relevance score
+
+# Use with your own LLM / framework
+context = "\n".join(c.chunk for c in chunks)
+response = your_llm(f"Based on:\n{context}\n\nAnswer: {query}")
+```
+
+Works with LangChain, LlamaIndex, direct API calls, or any framework.
+
+---
+
 ## API
 
 ```python
 kb = Ragi(sources, persist_dir=".piragi", config=None)
 kb.add("./more-docs")
-kb.ask(query, top_k=5)
-kb(query)  # Shorthand
+kb.ask(query, top_k=5)              # Full RAG (retrieval + LLM)
+kb.retrieve(query, top_k=5)         # Retrieval only (no LLM)
+kb(query)                           # Shorthand for ask()
 kb.filter(**metadata).ask(query)
-kb.refresh("./docs")  # Force refresh sources
+kb.filter(**metadata).retrieve(query)
+kb.refresh("./docs")                # Force refresh sources
 kb.count()
 kb.clear()
 ```
