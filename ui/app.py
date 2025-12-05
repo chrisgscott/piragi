@@ -1,10 +1,16 @@
 """Piragi UI - Simple RAG interface with local LLM chat."""
 
 import os
+import shutil
 import sys
-import tempfile
+from pathlib import Path
 
 import streamlit as st
+
+# Persistent storage directories
+PIRAGI_HOME = Path.home() / ".piragi"
+UPLOADS_DIR = PIRAGI_HOME / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -207,11 +213,13 @@ def main():
         st.divider()
         st.header("📁 Documents")
         
-        # File uploader
+        # File uploader (key changes on reset to clear widget state)
+        uploader_key = st.session_state.get("uploader_key", 0)
         uploaded_files = st.file_uploader(
             "Add documents",
             type=["txt", "md", "pdf", "html", "docx"],
             accept_multiple_files=True,
+            key=f"file_uploader_{uploader_key}",
         )
         
         if uploaded_files:
@@ -221,22 +229,17 @@ def main():
             if new_files:
                 with st.spinner("Processing..."):
                     for file in new_files:
-                        # Save to temp file
-                        with tempfile.NamedTemporaryFile(
-                            delete=False,
-                            suffix=f".{file.name.split('.')[-1]}",
-                        ) as tmp:
-                            tmp.write(file.read())
-                            tmp_path = tmp.name
+                        # Save to persistent uploads directory
+                        save_path = UPLOADS_DIR / file.name
+                        save_path.write_bytes(file.read())
                         
                         try:
-                            kb.add(tmp_path)
+                            kb.add(str(save_path))
                             st.session_state.processed_files.add(file.name)
                             st.success(f"✅ {file.name}")
                         except Exception as e:
                             st.error(f"❌ {file.name}: {e}")
-                        finally:
-                            os.unlink(tmp_path)
+                            save_path.unlink(missing_ok=True)  # Clean up on error
         
         # URL input
         st.divider()
@@ -254,18 +257,50 @@ def main():
         chunk_count = kb.count()
         st.metric("Chunks indexed", chunk_count)
         
-        # Clear buttons
-        if chunk_count > 0:
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🗑️ Clear docs", type="secondary"):
+        # Show saved documents
+        saved_docs = list(UPLOADS_DIR.glob("*"))
+        if saved_docs:
+            with st.expander(f"📂 Saved documents ({len(saved_docs)})"):
+                for doc in saved_docs:
+                    st.caption(f"• {doc.name}")
+        
+        # Action buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if chunk_count > 0:
+                if st.button("💬 Clear chat", type="secondary", use_container_width=True):
+                    st.session_state.messages = []
+                    st.rerun()
+        with col2:
+            if saved_docs:
+                if st.button("🔄 Re-index", type="secondary", use_container_width=True):
                     kb.clear()
+                    st.session_state.processed_files = set()
+                    with st.spinner("Re-indexing..."):
+                        for doc in saved_docs:
+                            try:
+                                kb.add(str(doc))
+                                st.session_state.processed_files.add(doc.name)
+                            except Exception as e:
+                                st.error(f"❌ {doc.name}: {e}")
+                    st.rerun()
+        
+        # Danger zone
+        if saved_docs or chunk_count > 0:
+            with st.expander("🗑️ Danger Zone"):
+                st.warning("This will delete all uploaded files and indexed data.")
+                if st.button("🗑️ Delete everything", type="primary"):
+                    # Clear KB
+                    kb.clear()
+                    get_kb.clear()  # Clear cached KB
+                    # Delete all uploads
+                    for f in UPLOADS_DIR.glob("*"):
+                        f.unlink()
+                    # Clear session state
                     st.session_state.messages = []
                     st.session_state.processed_files = set()
-                    st.rerun()
-            with col2:
-                if st.button("💬 Clear chat", type="secondary"):
-                    st.session_state.messages = []
+                    # Clear file uploader by incrementing key
+                    st.session_state["uploader_key"] = st.session_state.get("uploader_key", 0) + 1
                     st.rerun()
 
     # Main chat area
