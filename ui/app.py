@@ -317,9 +317,11 @@ def main():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
             if "citations" in message:
+                # Sort by score descending (scores are already absolute from when saved)
+                sorted_cites = sorted(message["citations"], key=lambda c: c["score"], reverse=True)
                 with st.expander("📎 Sources"):
-                    for cite in message["citations"]:
-                        st.markdown(f"**{cite['source']}** ({cite['score']}%)")
+                    for cite in sorted_cites:
+                        st.markdown(f"**{cite['source']}** ({cite['score']}% match)")
                         st.caption(cite["preview"])
 
     # Chat input
@@ -351,10 +353,14 @@ def main():
                     # Show citations
                     if answer.citations:
                         citations_data = []
+                        # Sort by score - if negative (distance), sort ascending; if positive (similarity), sort descending
+                        is_distance = any(c.score < 0 for c in answer.citations)
+                        sorted_citations = sorted(answer.citations, key=lambda c: c.score, reverse=not is_distance)
                         with st.expander("📎 Sources"):
-                            for cite in answer.citations:
-                                score_pct = int(cite.score * 100)
-                                st.markdown(f"**{cite.source}** ({score_pct}%)")
+                            for cite in sorted_citations:
+                                # Display as positive percentage (relevance)
+                                score_pct = abs(int(cite.score * 100))
+                                st.markdown(f"**{cite.source}** ({score_pct}% match)")
                                 st.caption(cite.chunk[:200] + "..." if len(cite.chunk) > 200 else cite.chunk)
                                 citations_data.append({
                                     "source": cite.source,
