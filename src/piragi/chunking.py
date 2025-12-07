@@ -120,6 +120,10 @@ class Chunker:
             if end < len(tokens):
                 chunk_text = self._break_at_sentence(chunk_text)
 
+            # Re-encode to get actual token length used
+            actual_tokens = self.tokenizer.encode(chunk_text, add_special_tokens=False)
+            actual_len = len(actual_tokens)
+
             chunks.append(
                 Chunk(
                     text=chunk_text.strip(),
@@ -129,8 +133,10 @@ class Chunker:
                 )
             )
 
-            # Move start with overlap
-            start = end - self.chunk_overlap
+            # Calculate the step for the next chunk's start, ensuring the desired overlap
+            # while always making forward progress.
+            step = max(1, actual_len - self.chunk_overlap)
+            start += step
             chunk_idx += 1
 
         return chunks
