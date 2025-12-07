@@ -51,3 +51,25 @@ Each project gets isolated storage in `~/.piragi/projects/<name>/`.
 Upload docs → Ask questions → Get grounded answers with citations.
 
 All processing happens locally in milliseconds.
+
+---
+
+## Demo Version (for Hugging Face Spaces)
+
+There's also a `demo_app.py` designed for hosted demos:
+
+```bash
+# Set API key (HF or OpenAI)
+export HF_TOKEN=your_token
+# or
+export OPENAI_API_KEY=your_key
+
+# Run demo
+streamlit run demo_app.py
+```
+
+**Differences from local version:**
+- Uses HF Inference API or OpenAI (no Ollama required)
+- Pre-loads piragi's own docs as sample content
+- Ephemeral uploads (session-only, not persisted)
+- Simpler UI focused on showcasing features
