@@ -275,18 +275,30 @@ class Ragi:
         if sources:
             self.add(sources)
 
-    def add(self, sources: Union[str, List[str]]) -> "Ragi":
+    def add(
+        self,
+        sources: Union[str, List[str]],
+        on_progress: Optional[callable] = None,
+    ) -> "Ragi":
         """
         Add documents to the knowledge base.
 
         Args:
             sources: File paths, URLs, or glob patterns
+            on_progress: Optional callback for progress updates.
+                Called with a string message at each stage.
 
         Returns:
             Self for chaining
         """
+        def _progress(msg: str) -> None:
+            if on_progress:
+                on_progress(msg)
+
         # Load documents
+        _progress("Discovering files...")
         documents = self.loader.load(sources)
+        _progress(f"Found {len(documents)} documents")
 
         # Hook: post_load - transform documents before chunking
         if self._post_load_hook:
@@ -294,7 +306,8 @@ class Ragi:
 
         # Chunk documents
         all_chunks = []
-        for doc in documents:
+        for i, doc in enumerate(documents, 1):
+            _progress(f"Chunking {i}/{len(documents)}: {doc.source}")
             if self._use_hierarchical:
                 # Hierarchical chunking returns (parents, children)
                 # We store children for retrieval but keep parent context
@@ -304,22 +317,28 @@ class Ragi:
                 chunks = self.chunker.chunk_document(doc)
                 all_chunks.extend(chunks)
 
+        _progress(f"Created {len(all_chunks)} chunks")
+
         # Hook: post_chunk - transform chunks before embedding
         if self._post_chunk_hook:
             all_chunks = self._post_chunk_hook(all_chunks)
 
         # Generate embeddings
+        _progress(f"Generating embeddings for {len(all_chunks)} chunks...")
         chunks_with_embeddings = self.embedder.embed_chunks(all_chunks)
+        _progress("Embeddings complete")
 
         # Hook: post_embed - transform chunks before storage (e.g., entity extraction)
         if self._post_embed_hook:
             chunks_with_embeddings = self._post_embed_hook(chunks_with_embeddings)
 
         # Store in vector database
+        _progress("Storing chunks...")
         self.store.add_chunks(chunks_with_embeddings)
 
         # Extract entities and relationships for knowledge graph
         if self._use_graph and self._graph:
+            _progress("Extracting knowledge graph...")
             llm_cfg = self._config.get("llm", {})
             for chunk in chunks_with_embeddings:
                 self._graph.extract_and_add(
@@ -348,6 +367,7 @@ class Ragi:
                     doc.source, doc.content, check_interval=None
                 )
 
+        _progress("Done")
         return self
 
     def _background_refresh(self, source: Union[str, List[str]]) -> None:

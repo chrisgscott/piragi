@@ -15,7 +15,17 @@ def mock_ragi():
     """Mock the sync Ragi class."""
     with patch("piragi.async_ragi.Ragi") as mock:
         mock_instance = MagicMock()
-        mock_instance.add.return_value = mock_instance
+
+        def mock_add(sources, on_progress=None):
+            if on_progress:
+                on_progress("Discovering files...")
+                on_progress("Found 2 documents")
+                on_progress("Chunking 1/2: doc1.md")
+                on_progress("Chunking 2/2: doc2.md")
+                on_progress("Done")
+            return mock_instance
+
+        mock_instance.add.side_effect = mock_add
         mock_instance.ask.return_value = MagicMock(text="Test answer", citations=[])
         mock_instance.retrieve.return_value = []
         mock_instance.refresh.return_value = mock_instance
@@ -210,3 +220,52 @@ async def test_async_ragi_concurrent_calls(mock_ragi):
 
     assert len(results) == 3
     assert mock_instance.ask.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_async_ragi_add_without_progress(mock_ragi):
+    """Test add() without progress - simple await."""
+    mock_class, mock_instance = mock_ragi
+
+    from piragi.async_ragi import AsyncRagi
+
+    kb = AsyncRagi()
+    result = await kb.add("./docs")
+
+    mock_instance.add.assert_called_once()
+    assert result is kb
+
+
+@pytest.mark.asyncio
+async def test_async_ragi_add_with_progress(mock_ragi):
+    """Test add() with progress=True - async iterator."""
+    mock_class, mock_instance = mock_ragi
+
+    from piragi.async_ragi import AsyncRagi
+
+    kb = AsyncRagi()
+    messages = []
+
+    async for msg in kb.add("./docs", progress=True):
+        messages.append(msg)
+
+    assert len(messages) == 5
+    assert messages[0] == "Discovering files..."
+    assert messages[1] == "Found 2 documents"
+    assert messages[-1] == "Done"
+    mock_instance.add.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_ragi_add_progress_iterator_type(mock_ragi):
+    """Test that add(progress=True) returns an async iterator."""
+    mock_class, mock_instance = mock_ragi
+
+    from piragi.async_ragi import AsyncRagi, _AddIterator
+
+    kb = AsyncRagi()
+    result = kb.add("./docs", progress=True)
+
+    assert isinstance(result, _AddIterator)
+    assert hasattr(result, "__aiter__")
+    assert hasattr(result, "__anext__")

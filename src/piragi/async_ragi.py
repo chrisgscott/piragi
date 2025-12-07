@@ -1,7 +1,8 @@
 """Async wrapper for Ragi - non-blocking API for web frameworks."""
 
 import asyncio
-from typing import Any, Dict, List, Optional, Union
+import queue
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from .core import Ragi
 from .stores import VectorStoreProtocol
@@ -20,6 +21,10 @@ class AsyncRagi:
         >>>
         >>> kb = AsyncRagi("./docs")
         >>> answer = await kb.ask("How do I deploy?")
+        >>>
+        >>> # With progress tracking
+        >>> async for progress in kb.add("./large-docs", progress=True):
+        >>>     print(progress)
         >>>
         >>> # With FastAPI
         >>> @app.post("/ingest")
@@ -54,18 +59,32 @@ class AsyncRagi:
             graph=graph,
         )
 
-    async def add(self, sources: Union[str, List[str]]) -> "AsyncRagi":
+    def add(
+        self,
+        sources: Union[str, List[str]],
+        progress: bool = False,
+    ) -> Union["_AddAwaitable", "_AddIterator"]:
         """
         Add documents to the knowledge base (non-blocking).
 
         Args:
             sources: File paths, URLs, or glob patterns
+            progress: If True, returns an async iterator yielding progress messages
 
         Returns:
-            Self for chaining
+            Awaitable that resolves to self, or async iterator if progress=True
+
+        Examples:
+            >>> # Simple - just await
+            >>> await kb.add("./docs")
+            >>>
+            >>> # With progress
+            >>> async for msg in kb.add("./docs", progress=True):
+            >>>     print(msg)
         """
-        await asyncio.to_thread(self._sync.add, sources)
-        return self
+        if progress:
+            return _AddIterator(self, sources)
+        return _AddAwaitable(self, sources)
 
     async def ask(
         self,
@@ -143,3 +162,57 @@ class AsyncRagi:
     async def __call__(self, query: str, top_k: int = 5) -> Answer:
         """Callable shorthand for ask()."""
         return await self.ask(query, top_k=top_k)
+
+
+class _AddAwaitable:
+    """Awaitable wrapper for add() without progress."""
+
+    def __init__(self, ragi: AsyncRagi, sources: Union[str, List[str]]) -> None:
+        self._ragi = ragi
+        self._sources = sources
+
+    def __await__(self):
+        return self._run().__await__()
+
+    async def _run(self) -> AsyncRagi:
+        await asyncio.to_thread(self._ragi._sync.add, self._sources)
+        return self._ragi
+
+
+class _AddIterator:
+    """Async iterator wrapper for add() with progress."""
+
+    def __init__(self, ragi: AsyncRagi, sources: Union[str, List[str]]) -> None:
+        self._ragi = ragi
+        self._sources = sources
+        self._queue: queue.Queue = queue.Queue()
+        self._done = False
+        self._task: Optional[asyncio.Task] = None
+
+    def __aiter__(self) -> AsyncIterator[str]:
+        return self
+
+    async def __anext__(self) -> str:
+        # Start the background task on first iteration
+        if self._task is None:
+            self._task = asyncio.create_task(self._run_in_thread())
+
+        # Poll for progress messages
+        while True:
+            try:
+                msg = self._queue.get_nowait()
+                return msg
+            except queue.Empty:
+                if self._done:
+                    raise StopAsyncIteration
+                # Wait a bit before polling again
+                await asyncio.sleep(0.05)
+
+    async def _run_in_thread(self) -> None:
+        def on_progress(msg: str) -> None:
+            self._queue.put(msg)
+
+        await asyncio.to_thread(
+            self._ragi._sync.add, self._sources, on_progress
+        )
+        self._done = True

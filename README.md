@@ -219,16 +219,24 @@ from piragi import AsyncRagi
 
 kb = AsyncRagi("./docs")
 
+# Simple await
+await kb.add("./more-docs")
+answer = await kb.ask("What is X?")
+
+# With progress tracking
+async for progress in kb.add("./large-docs", progress=True):
+    print(progress)
+    # "Discovering files..."
+    # "Found 10 documents"
+    # "Chunking 1/10: doc1.md"
+    # ...
+    # "Done"
+
 # With FastAPI
 @app.post("/ingest")
 async def ingest(files: list[str]):
     await kb.add(files)
     return {"status": "done"}
-
-@app.get("/ask")
-async def ask(query: str):
-    answer = await kb.ask(query)
-    return {"answer": answer.text, "citations": answer.citations}
 ```
 
 All methods are async: `add()`, `ask()`, `retrieve()`, `refresh()`, `count()`, `clear()`.
