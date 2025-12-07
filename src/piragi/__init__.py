@@ -31,6 +31,7 @@ Example:
 """
 
 from .core import Ragi
+from .async_ragi import AsyncRagi
 from .types import Answer, Citation
 
 # Advanced components (optional imports)
@@ -54,6 +55,7 @@ __version__ = "0.3.0"
 __all__ = [
     # Core
     "Ragi",
+    "AsyncRagi",
     "Answer",
     "Citation",
     # Vector stores

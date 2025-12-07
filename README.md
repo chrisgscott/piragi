@@ -44,6 +44,7 @@ pip install piragi[all]      # Everything
 - **Advanced Retrieval** - HyDE, hybrid search, cross-encoder reranking
 - **Semantic Chunking** - Context-aware and hierarchical chunking
 - **Knowledge Graph** - Entity/relationship extraction for better answers
+- **Async Support** - Non-blocking API for web frameworks
 
 ## Quick Start
 
@@ -209,6 +210,29 @@ config = {
 }
 ```
 
+## Async Support
+
+Use `AsyncRagi` for non-blocking operations in async web frameworks:
+
+```python
+from piragi import AsyncRagi
+
+kb = AsyncRagi("./docs")
+
+# With FastAPI
+@app.post("/ingest")
+async def ingest(files: list[str]):
+    await kb.add(files)
+    return {"status": "done"}
+
+@app.get("/ask")
+async def ask(query: str):
+    answer = await kb.ask(query)
+    return {"answer": answer.text, "citations": answer.citations}
+```
+
+All methods are async: `add()`, `ask()`, `retrieve()`, `refresh()`, `count()`, `clear()`.
+
 ## Retrieval Only
 
 Use piragi as a retrieval layer without LLM:
@@ -226,7 +250,8 @@ response = your_llm(f"Context:\n{context}\n\nQuestion: {query}")
 ## API
 
 ```python
-kb = Ragi(sources, persist_dir=".piragi", config=None, store=None)
+# Sync API
+kb = Ragi(sources, persist_dir=".piragi", config=None, store=None, graph=False)
 kb.add("./more-docs")
 kb.ask(query, top_k=5)
 kb.retrieve(query, top_k=5)
@@ -234,6 +259,11 @@ kb.filter(**metadata).ask(query)
 kb.refresh("./docs")
 kb.count()
 kb.clear()
+
+# Async API (same methods, just await them)
+kb = AsyncRagi(sources, persist_dir=".piragi", config=None, store=None, graph=False)
+await kb.add("./more-docs")
+await kb.ask(query, top_k=5)
 ```
 
 Full docs: [API.md](API.md)
