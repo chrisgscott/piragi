@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2025-12-08
+
+### Added
+- Incremental progress reporting during embedding generation (fixes #9)
+- Progress messages now report per-batch embedding status: "Embedded 32/64 chunks"
+- Batched embedding processing for better memory efficiency
+
+### Changed
+- `embed_chunks()` now accepts optional `on_progress` callback and `batch_size` parameter
+
 ## [0.7.4] - 2025-12-08
 
 ### Fixed
@@ -118,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Metadata filtering
 - Auto-updates with background workers
 
+[0.7.5]: https://github.com/hemanth/piragi/releases/tag/v0.7.5
 [0.7.4]: https://github.com/hemanth/piragi/releases/tag/v0.7.4
 [0.7.3]: https://github.com/hemanth/piragi/releases/tag/v0.7.3
 [0.7.2]: https://github.com/hemanth/piragi/releases/tag/v0.7.2

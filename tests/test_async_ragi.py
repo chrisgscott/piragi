@@ -22,6 +22,10 @@ def mock_ragi():
                 on_progress("Found 2 documents")
                 on_progress("Chunking 1/2: doc1.md")
                 on_progress("Chunking 2/2: doc2.md")
+                on_progress("Generating embeddings for 64 chunks...")
+                on_progress("Embedded 32/64 chunks")
+                on_progress("Embedded 64/64 chunks")
+                on_progress("Embeddings complete")
                 on_progress("Done")
             return mock_instance
 
@@ -249,9 +253,11 @@ async def test_async_ragi_add_with_progress(mock_ragi):
     async for msg in kb.add("./docs", progress=True):
         messages.append(msg)
 
-    assert len(messages) == 5
+    assert len(messages) == 9
     assert messages[0] == "Discovering files..."
     assert messages[1] == "Found 2 documents"
+    assert "Embedded 32/64 chunks" in messages
+    assert "Embedded 64/64 chunks" in messages
     assert messages[-1] == "Done"
     mock_instance.add.assert_called_once()
 

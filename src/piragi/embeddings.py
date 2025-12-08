@@ -1,7 +1,7 @@
 """Embedding generation using local or remote models."""
 
 import os
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from .types import Chunk
 
@@ -50,12 +50,19 @@ class EmbeddingGenerator:
             )
             self.client = None
 
-    def embed_chunks(self, chunks: List[Chunk]) -> List[Chunk]:
+    def embed_chunks(
+        self,
+        chunks: List[Chunk],
+        on_progress: Optional[Callable[[str], None]] = None,
+        batch_size: int = 32,
+    ) -> List[Chunk]:
         """
         Generate embeddings for a list of chunks.
 
         Args:
             chunks: List of chunks to embed
+            on_progress: Optional callback for progress updates
+            batch_size: Number of chunks to process per batch (default: 32)
 
         Returns:
             Chunks with embeddings added
@@ -65,14 +72,24 @@ class EmbeddingGenerator:
 
         # Extract texts
         texts = [chunk.text for chunk in chunks]
+        all_embeddings = []
+        total = len(texts)
 
-        # Generate embeddings in batch (documents don't need instruction prefix)
-        embeddings = self._generate_embeddings(texts)
+        # Process in batches for memory efficiency and progress reporting
+        for i in range(0, total, batch_size):
+            batch_texts = texts[i : i + batch_size]
+            batch_embeddings = self._generate_embeddings(batch_texts)
+            all_embeddings.extend(batch_embeddings)
+
+            # Report progress
+            if on_progress:
+                completed = min(i + batch_size, total)
+                on_progress(f"Embedded {completed}/{total} chunks")
 
         # Add embeddings to chunks
-        for chunk, embedding in zip(chunks, embeddings):
+        for chunk, embedding in zip(chunks, all_embeddings):
             # Handle both numpy arrays (local) and lists (remote/Ollama)
-            if hasattr(embedding, 'tolist'):
+            if hasattr(embedding, "tolist"):
                 chunk.embedding = embedding.tolist()
             else:
                 chunk.embedding = embedding

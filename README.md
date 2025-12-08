@@ -230,6 +230,11 @@ async for progress in kb.add("./large-docs", progress=True):
     # "Found 10 documents"
     # "Chunking 1/10: doc1.md"
     # ...
+    # "Generating embeddings for 150 chunks..."
+    # "Embedded 32/150 chunks"
+    # "Embedded 64/150 chunks"
+    # ...
+    # "Embeddings complete"
     # "Done"
 
 # With FastAPI

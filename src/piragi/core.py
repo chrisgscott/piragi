@@ -323,9 +323,11 @@ class Ragi:
         if self._post_chunk_hook:
             all_chunks = self._post_chunk_hook(all_chunks)
 
-        # Generate embeddings
+        # Generate embeddings with per-batch progress
         _progress(f"Generating embeddings for {len(all_chunks)} chunks...")
-        chunks_with_embeddings = self.embedder.embed_chunks(all_chunks)
+        chunks_with_embeddings = self.embedder.embed_chunks(
+            all_chunks, on_progress=_progress
+        )
         _progress("Embeddings complete")
 
         # Hook: post_embed - transform chunks before storage (e.g., entity extraction)
