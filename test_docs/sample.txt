@@ -1,0 +1,19 @@
+
+        AsyncRagi Test Document
+        
+        This is a test document for the AsyncRagi FastAPI integration.
+        
+        Key features:
+        - Async support for web frameworks
+        - Non-blocking operations
+        - Progress tracking with async iterators
+        - Knowledge graph capabilities
+        
+        Usage examples:
+        1. Use with FastAPI for high-performance web APIs
+        2. Integrate with aiohttp for async web servers
+        3. Works with Starlette applications
+        
+        The async wrapper uses asyncio.to_thread() to run synchronous
+        operations in a thread pool, making it non-blocking.
+        
