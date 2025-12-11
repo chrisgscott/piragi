@@ -1,0 +1,18 @@
+# Task configurations
+# Define reusable task templates
+
+research:
+  description: "Research the following topic: {topic}"
+  expected_output: "A comprehensive summary of relevant findings from the knowledge base."
+
+summarize:
+  description: "Summarize the following information: {content}"
+  expected_output: "A concise summary that captures the key points."
+
+analyze:
+  description: "Analyze the following data: {data}"
+  expected_output: "An analysis with key insights and patterns identified."
+
+write_response:
+  description: "Based on the research findings, create a clear and comprehensive response."
+  expected_output: "A well-written response that addresses the original query."

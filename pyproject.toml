@@ -3,28 +3,25 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "piragi"
-version = "0.7.5"
-description = "The best RAG interface yet - Built-in vector store, embeddings, citations, and auto-updates"
+name = "piragi-template"
+version = "0.1.0"
+description = "Template for building RAG-powered AI tools with piragi, CrewAI, and Next.js"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
-authors = [
-    { name = "Hemanth HM", email = "hemanth.hm@gmail.com" }
-]
-keywords = ["rag", "retrieval", "embeddings", "vector-search", "llm", "ai"]
+keywords = ["rag", "retrieval", "embeddings", "vector-search", "llm", "ai", "crewai", "agents"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
+    # Piragi core
     "markitdown[all]>=0.0.1",
     "lancedb>=0.3.0",
     "openai>=1.0.0",
@@ -36,6 +33,12 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "pyarrow>=14.0.0",
     "pysbd>=0.3.4",
+    # FastAPI
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    # CrewAI
+    "crewai>=0.86.0",
+    "crewai-tools>=0.17.0",
 ]
 
 [project.optional-dependencies]
@@ -68,14 +71,8 @@ dev = [
     "mypy>=1.0.0",
 ]
 
-[project.urls]
-Homepage = "https://github.com/hemanth/ragi"
-Documentation = "https://github.com/hemanth/ragi#readme"
-Repository = "https://github.com/hemanth/ragi"
-Issues = "https://github.com/hemanth/ragi/issues"
-
 [tool.hatch.build.targets.wheel]
-packages = ["src/piragi"]
+packages = ["lib/piragi", "api", "agents"]
 
 [tool.black]
 line-length = 100
